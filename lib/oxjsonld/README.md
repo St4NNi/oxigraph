@@ -51,6 +51,66 @@ for triple in JsonLdParser::new().for_reader(file.as_ref()) {
 assert_eq!(2, count);
 ```
 
+## JSON-LD Compaction
+
+The serializer supports compaction, converting full IRIs to prefixed forms like `schema:name`.
+
+```rust
+use oxrdf::{GraphNameRef, LiteralRef, NamedNodeRef, QuadRef, vocab::rdf};
+use oxjsonld::{JsonLdSerializer, JsonNode};
+
+// Context definitions: {"schema": "http://schema.org/"}
+let mut ctx = std::collections::HashMap::new();
+ctx.insert("schema".into(), JsonNode::String("http://schema.org/".into()));
+
+let mut ser = JsonLdSerializer::new()
+    .with_context("http://example.org/ctx", JsonNode::Object(ctx))
+    .for_writer(Vec::new());
+
+ser.serialize_quad(QuadRef::new(
+    NamedNodeRef::new("http://example.org/article")?,
+    rdf::TYPE,
+    NamedNodeRef::new("http://schema.org/Article")?,
+    GraphNameRef::DefaultGraph,
+))?;
+ser.serialize_quad(QuadRef::new(
+    NamedNodeRef::new("http://example.org/article")?,
+    NamedNodeRef::new("http://schema.org/name")?,
+    LiteralRef::new_simple_literal("My Article"),
+    GraphNameRef::DefaultGraph,
+))?;
+
+let output = String::from_utf8(ser.finish()?)?;
+assert!(output.contains("schema:Article"));
+assert!(output.contains("schema:name"));
+# Result::<_, Box<dyn std::error::Error>>::Ok(())
+```
+
+Output (formatted):
+```json
+{
+  "@context": "http://example.org/ctx",
+  "@graph": [{
+    "@id": "http://example.org/article",
+    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": [{"@id": "schema:Article"}],
+    "schema:name": [{"@value": "My Article"}]
+  }]
+}
+```
+
+For remote contexts, use `with_context_url` and provide a loader callback:
+
+```rust,no_run
+use oxjsonld::JsonLdSerializer;
+
+let _ser = JsonLdSerializer::new()
+    .with_context_url("https://schema.org/")
+    .with_load_document_callback(|url, _opts| {
+        todo!("Fetch context from {}", url)
+    })
+    .for_writer(Vec::new());
+```
+
 ## License
 
 This project is licensed under either of

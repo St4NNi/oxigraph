@@ -4,6 +4,7 @@
 #![doc(html_favicon_url = "https://raw.githubusercontent.com/oxigraph/oxigraph/main/logo.svg")]
 #![doc(html_logo_url = "https://raw.githubusercontent.com/oxigraph/oxigraph/main/logo.svg")]
 
+mod compaction;
 mod context;
 mod error;
 mod expansion;
@@ -11,7 +12,8 @@ mod from_rdf;
 mod profile;
 mod to_rdf;
 
-pub use context::{JsonLdLoadDocumentOptions, JsonLdRemoteDocument};
+pub use compaction::JsonLdCompactionConverter;
+pub use context::{JsonLdContext, JsonLdLoadDocumentOptions, JsonLdRemoteDocument, JsonNode};
 pub use error::{JsonLdErrorCode, JsonLdParseError, JsonLdSyntaxError, TextPosition};
 #[cfg(feature = "async-tokio")]
 pub use from_rdf::TokioAsyncWriterJsonLdSerializer;
