@@ -38,6 +38,7 @@ pub struct JsonLdContext {
     pub default_direction: Option<&'static str>,
     pub term_definitions: HashMap<String, JsonLdTermDefinition>,
     pub previous_context: Option<Box<JsonLdContext>>,
+    pub iri_to_term: HashMap<String, String>,
 }
 
 impl JsonLdContext {
@@ -50,7 +51,76 @@ impl JsonLdContext {
             default_direction: None,
             term_definitions: HashMap::new(),
             previous_context: None,
+            iri_to_term: HashMap::new(),
         }
+    }
+
+    /// Builds the IRI lookup table from term definitions
+    /// Maps IRIs to their preferred compact term name
+    pub fn build_iri_lookup(&mut self) {
+        self.iri_to_term.clear();
+
+        for (term, term_def) in &self.term_definitions {
+            // Skip if no IRI mapping or if it maps to None
+            let Some(Some(iri)) = &term_def.iri_mapping else {
+                continue;
+            };
+
+            // Skip terms that map to keywords
+            if is_keyword(iri) {
+                continue;
+            }
+
+            // Check if we should add/update this mapping
+            if let Some(existing_term) = self.iri_to_term.get(iri) {
+                // Prefer shorter terms, then lexicographically first
+                if term.len() < existing_term.len()
+                    || (term.len() == existing_term.len() && term < existing_term) {
+                    self.iri_to_term.insert(iri.clone(), term.clone());
+                }
+            } else {
+                self.iri_to_term.insert(iri.clone(), term.clone());
+            }
+        }
+    }
+
+    /// Looks up the preferred term for a given IRI
+    pub fn term_for_iri(&self, iri: &str) -> Option<&str> {
+        self.iri_to_term.get(iri).map(String::as_str)
+    }
+
+    /// Finds a prefix term that matches the beginning of an IRI
+    /// Returns (term_name, suffix) where suffix is the remaining part
+    pub fn prefix_for_iri<'a>(&self, iri: &'a str) -> Option<(&str, &'a str)> {
+        let mut best_match: Option<(&str, &'a str, usize)> = None;
+
+        for (term, term_def) in &self.term_definitions {
+            // Check if this is a prefix term
+            if !term_def.prefix_flag {
+                continue;
+            }
+
+            // Get the IRI mapping
+            let Some(Some(prefix_iri)) = &term_def.iri_mapping else {
+                continue;
+            };
+
+            // Check if the IRI starts with this prefix
+            if let Some(suffix) = iri.strip_prefix(prefix_iri.as_str()) {
+                let prefix_len = prefix_iri.len();
+
+                // Keep track of the longest matching prefix
+                if let Some((_, _, best_len)) = best_match {
+                    if prefix_len > best_len {
+                        best_match = Some((term.as_str(), suffix, prefix_len));
+                    }
+                } else {
+                    best_match = Some((term.as_str(), suffix, prefix_len));
+                }
+            }
+        }
+
+        best_match.map(|(term, suffix, _)| (term, suffix))
     }
 }
 
@@ -94,6 +164,19 @@ pub struct JsonLdRemoteDocument {
 }
 
 impl JsonLdContextProcessor {
+    /// Adds a local context source by pre-populating the remote context cache.
+    /// This allows offline/bundled contexts without network fetching.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn with_local_context(self, url: impl Into<String>, context: JsonNode) -> Self {
+        let url = url.into();
+        let url_iri = Iri::parse(url.clone()).ok();
+        self.remote_context_cache
+            .lock()
+            .expect("Poisoned mutex")
+            .insert(url, (url_iri, context));
+        self
+    }
+
     /// [Context Processing Algorithm](https://www.w3.org/TR/json-ld-api/#algorithm)
     pub fn process_context(
         &self,
@@ -1376,7 +1459,7 @@ impl JsonLdContextProcessor {
             .lock()
             .map_err(|_| JsonLdSyntaxError::msg("Poisoned mutex"))?;
         if let Some(loaded_context) = remote_context_cache.get(url) {
-            // 5.2.4)
+            // 5.2.4) - also handles local contexts added via with_local_context()
             return Ok(loaded_context.clone());
         }
 
@@ -1548,5 +1631,270 @@ fn after_to_node_event(
             None
         }
         None => Some(new_value),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_iri_lookup() {
+        let mut context = JsonLdContext::new_empty(None);
+
+        // Add some term definitions
+        context.term_definitions.insert(
+            "name".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/name".to_owned())),
+                prefix_flag: false,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        context.term_definitions.insert(
+            "fullName".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/name".to_owned())),
+                prefix_flag: false,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        // Add a term that maps to a keyword (should be skipped)
+        context.term_definitions.insert(
+            "type".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("@type".to_owned())),
+                prefix_flag: false,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        context.build_iri_lookup();
+
+        // Should prefer shorter term "name" over "fullName"
+        assert_eq!(
+            context.iri_to_term.get("http://schema.org/name"),
+            Some(&"name".to_owned())
+        );
+
+        // Should not include keyword mappings
+        assert_eq!(context.iri_to_term.get("@type"), None);
+    }
+
+    #[test]
+    fn test_term_for_iri() {
+        let mut context = JsonLdContext::new_empty(None);
+
+        context.term_definitions.insert(
+            "name".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/name".to_owned())),
+                prefix_flag: false,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        context.build_iri_lookup();
+
+        // Test exact term lookup
+        assert_eq!(
+            context.term_for_iri("http://schema.org/name"),
+            Some("name")
+        );
+        assert_eq!(context.term_for_iri("http://schema.org/other"), None);
+    }
+
+    #[test]
+    fn test_prefix_for_iri() {
+        let mut context = JsonLdContext::new_empty(None);
+
+        // Add a prefix term
+        context.term_definitions.insert(
+            "schema".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/".to_owned())),
+                prefix_flag: true,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        // Add another prefix with longer match
+        context.term_definitions.insert(
+            "schemaName".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/name/".to_owned())),
+                prefix_flag: true,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        // Test prefix matching - should prefer longest match
+        assert_eq!(
+            context.prefix_for_iri("http://schema.org/name/first"),
+            Some(("schemaName", "first"))
+        );
+
+        // Test with shorter prefix
+        assert_eq!(
+            context.prefix_for_iri("http://schema.org/Person"),
+            Some(("schema", "Person"))
+        );
+
+        // Test no match
+        assert_eq!(context.prefix_for_iri("http://example.org/foo"), None);
+    }
+
+    #[test]
+    fn test_local_context_source() {
+        use std::sync::{Arc, Mutex};
+
+        let context_json = JsonNode::Object(
+            [(
+                "@context".to_owned(),
+                JsonNode::Object(
+                    [(
+                        "name".to_owned(),
+                        JsonNode::String("http://schema.org/name".to_owned()),
+                    )]
+                    .into_iter()
+                    .collect(),
+                ),
+            )]
+            .into_iter()
+            .collect(),
+        );
+
+        let processor = JsonLdContextProcessor {
+            processing_mode: JsonLdProcessingMode::JsonLd1_1,
+            lenient: false,
+            max_context_recursion: 10,
+            remote_context_cache: Arc::new(Mutex::new(HashMap::new())),
+            load_document_callback: None,
+        }
+        .with_local_context("http://example.org/context.jsonld", context_json.clone());
+
+        // Verify that local context is stored in the remote_context_cache
+        assert!(processor
+            .remote_context_cache
+            .lock()
+            .unwrap()
+            .contains_key("http://example.org/context.jsonld"));
+
+        // Test that load_remote_context uses the local context from cache
+        let result = processor.load_remote_context("http://example.org/context.jsonld");
+        assert!(result.is_ok());
+
+        let (url_iri, loaded_context) = result.unwrap();
+        assert_eq!(
+            url_iri.as_ref().map(|i| i.as_str()),
+            Some("http://example.org/context.jsonld")
+        );
+        assert_eq!(loaded_context, context_json);
+    }
+
+    #[test]
+    fn test_build_iri_lookup_lexicographic_ordering() {
+        let mut context = JsonLdContext::new_empty(None);
+
+        // Add terms with same length - should prefer lexicographically first
+        context.term_definitions.insert(
+            "nameB".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/name".to_owned())),
+                prefix_flag: false,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        context.term_definitions.insert(
+            "nameA".to_owned(),
+            JsonLdTermDefinition {
+                iri_mapping: Some(Some("http://schema.org/name".to_owned())),
+                prefix_flag: false,
+                protected: false,
+                reverse_property: false,
+                base_url: None,
+                context: None,
+                container_mapping: &[],
+                direction_mapping: None,
+                index_mapping: None,
+                language_mapping: None,
+                nest_value: None,
+                type_mapping: None,
+            },
+        );
+
+        context.build_iri_lookup();
+
+        // Should prefer "nameA" over "nameB" (lexicographically first)
+        assert_eq!(
+            context.iri_to_term.get("http://schema.org/name"),
+            Some(&"nameA".to_owned())
+        );
     }
 }
