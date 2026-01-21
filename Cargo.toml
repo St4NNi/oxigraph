@@ -15,7 +15,6 @@ members = [
     "lib/spargeo",
     "lib/sparopt",
     "lib/sparql-smith",
-    "oxrocksdb-sys",
     "python",
     "testsuite"
 ]
@@ -86,7 +85,6 @@ oxjsonld = { version = "=0.2.1", path = "lib/oxjsonld" }
 oxrdf = { version = "=0.3.1", path = "lib/oxrdf" }
 oxrdfio = { version = "=0.2.1", path = "lib/oxrdfio" }
 oxrdfxml = { version = "=0.2.1", path = "lib/oxrdfxml" }
-oxrocksdb-sys = { version = "=0.5.3", path = "./oxrocksdb-sys" }
 oxsdatatypes = { version = "=0.2.2", path = "lib/oxsdatatypes" }
 oxttl = { version = "=0.2.1", path = "lib/oxttl" }
 spargebra = { version = "=0.4.3", path = "lib/spargebra" }

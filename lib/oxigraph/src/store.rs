@@ -65,7 +65,7 @@ use std::thread::available_parallelism;
 
 /// An on-disk [RDF dataset](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-dataset).
 /// Allows querying and updating it using SPARQL.
-/// It is based on the [RocksDB](https://rocksdb.org/) key-value store.
+/// It is based on [SQLite/libsql](https://libsql.org/) for persistent storage.
 ///
 /// This store ensures the "repeatable read" isolation level: the store only exposes changes that have
 /// been "committed" (i.e., no partial writes), and the exposed state does not change for the complete duration
@@ -104,7 +104,7 @@ pub struct Store {
 }
 
 impl Store {
-    /// New in-memory [`Store`] without RocksDB.
+    /// New in-memory [`Store`] without persistent storage.
     pub fn new() -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::new()?,
@@ -116,7 +116,7 @@ impl Store {
     /// Only one read-write [`Store`] can exist at the same time.
     /// If you want to have extra [`Store`] instance opened on the same data
     /// use [`Store::open_read_only`].
-    #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "libsql"))]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::open(path.as_ref())?,
@@ -126,7 +126,7 @@ impl Store {
     /// Opens a read-only [`Store`] from disk.
     ///
     /// Opening as read-only while having an other process writing the database is undefined behavior.
-    #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "libsql"))]
     pub fn open_read_only(path: impl AsRef<Path>) -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::open_read_only(path.as_ref())?,
@@ -943,7 +943,7 @@ impl Store {
     /// Flushes all buffers and ensures that all writes are saved on disk.
     ///
     /// Flushes are automatically done using background threads but might lag a little bit.
-    #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "libsql"))]
     pub fn flush(&self) -> Result<(), StorageError> {
         self.storage.flush()
     }
@@ -953,7 +953,7 @@ impl Store {
     /// Useful to call after a batch upload or another similar operation.
     ///
     /// <div class="warning">Can take hours on huge databases.</div>
-    #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "libsql"))]
     pub fn optimize(&self) -> Result<(), StorageError> {
         self.storage.compact()
     }
@@ -966,7 +966,7 @@ impl Store {
     /// <div class="warning">
     ///
     /// Backups are only possible for on-disk databases created using [`Store::open`].</div>
-    /// Temporary in-memory databases created using [`Store::new`] are not compatible with RocksDB backup system.
+    /// Temporary in-memory databases created using [`Store::new`] are not compatible with SQLite backup system.
     ///
     /// <div class="warning">An error is raised if the `target_directory` already exists.</div>
     ///
@@ -976,7 +976,7 @@ impl Store {
     /// This allows cheap regular backups.
     ///
     /// If you want to move your data to another RDF storage system, you should have a look at the [`Store::dump_to_writer`] function instead.
-    #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+    #[cfg(all(not(target_family = "wasm"), feature = "libsql"))]
     pub fn backup(&self, target_directory: impl AsRef<Path>) -> Result<(), StorageError> {
         self.storage.backup(target_directory.as_ref())
     }
@@ -1616,7 +1616,7 @@ impl Iterator for GraphNameIter<'_> {
 ///
 /// Memory usage is configurable using [`with_max_memory_size_in_megabytes`](Self::with_max_memory_size_in_megabytes)
 /// and the number of used threads with [`with_num_threads`](Self::with_num_threads).
-/// By default, the memory consumption target (excluding the system and RocksDB internal consumption)
+/// By default, the memory consumption target (excluding the system and SQLite internal consumption)
 /// is around 2GB per thread and 2 threads.
 /// These targets are considered per loaded file.
 ///
@@ -1661,7 +1661,7 @@ impl BulkLoader<'_> {
     ///
     /// This number must be at least a few megabytes per thread.
     ///
-    /// Memory used by RocksDB and the system is not taken into account in this limit.
+    /// Memory used by SQLite and the system is not taken into account in this limit.
     /// Note that depending on the system behavior, this amount might never be reached or be blown up
     /// (for example, if the data contains very long IRIs or literals).
     ///
@@ -1696,7 +1696,7 @@ impl BulkLoader<'_> {
 
     /// Allow the bulk loader to save also data to the database during the bulk loading instead of only when [`commit`](Self::commit) is called.
     ///
-    /// When used with the RocksDB storage, it allows the storage to compact the data while the loading continues.
+    /// When used with the SQLite storage, it allows the storage to compact the data while the loading continues.
     pub fn without_atomicity(mut self) -> Self {
         self.storage = self.storage.without_atomicity();
         self

@@ -73,7 +73,7 @@ It is based on these crates that can be used separately:
 
 To build the library locally, don't forget to clone the submodules using `git clone --recursive https://github.com/oxigraph/oxigraph.git` to clone the repository including submodules or `git submodule update --init` to add submodules to the already cloned repository.
 
-It is possible to disable the RocksDB storage backend to only use the in-memory fallback by disabling the `rocksdb` default feature:
+It is possible to disable the libsql storage backend to only use the in-memory fallback by disabling the `libsql` default feature:
 ```toml
 oxigraph = { version = "*", default-features = false }
 ```

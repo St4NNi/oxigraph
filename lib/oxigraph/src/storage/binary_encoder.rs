@@ -1,3 +1,6 @@
+// Many functions are used only by tests or may be needed for future optimizations
+#![allow(dead_code)]
+
 use crate::storage::error::{CorruptionError, StorageError};
 #[cfg(feature = "rdf-12")]
 use crate::storage::numeric_encoder::EncodedTriple;
@@ -98,7 +101,7 @@ impl QuadEncoding {
     }
 }
 
-#[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+#[cfg(all(not(target_family = "wasm"), feature = "libsql"))]
 pub fn decode_term(mut buffer: &[u8]) -> Result<EncodedTerm, StorageError> {
     buffer.read_term()
 }

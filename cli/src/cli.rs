@@ -109,7 +109,7 @@ pub enum Command {
         format: Option<String>,
         /// Saves data to the database during loading, instead of only doing it at the end.
         ///
-        /// This lowers disk space usage by allowing rocksdb to compact and compress,
+        /// This lowers disk space usage by allowing SQLite to compact and compress,
         /// at the expense of CPU usage, and write amplification.
         #[arg(long)]
         non_atomic: bool,

@@ -21,7 +21,6 @@ doc = false
 default = ["native-tls", "geosparql", "rdf-12"]
 native-tls = ["oxigraph/http-client-native-tls"]
 rdf-12 = ["oxigraph/rdf-12"]
-rocksdb-pkg-config = ["oxigraph/rocksdb-pkg-config"]
 rustls-native = ["oxigraph/http-client-rustls-native"]
 rustls-webpki = ["oxigraph/http-client-rustls-webpki"]
 geosparql = ["dep:spargeo"]

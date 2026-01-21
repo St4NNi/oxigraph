@@ -1859,8 +1859,6 @@ mod tests {
             .arg("--bin")
             .arg("oxigraph")
             .arg("--no-default-features");
-        #[cfg(feature = "rocksdb-pkg-config")]
-        command.arg("--features").arg("rocksdb-pkg-config");
         #[cfg(feature = "geosparql")]
         command.arg("--features").arg("geosparql");
         #[cfg(feature = "rdf-12")]

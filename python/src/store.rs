@@ -16,7 +16,7 @@ use std::path::PathBuf;
 /// RDF store.
 ///
 /// It encodes a `RDF dataset <https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-dataset>`_ and allows to query it using SPARQL.
-/// It is based on the `RocksDB <https://rocksdb.org/>`_ key-value database.
+/// It is based on `SQLite/libsql <https://libsql.org/>`_ for persistent storage.
 ///
 /// This store ensures the "repeatable read" isolation level: the store only exposes changes that have
 /// been "committed" (i.e. no partial writes) and the exposed state does not change for the complete duration

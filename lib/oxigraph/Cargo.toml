@@ -14,15 +14,13 @@ edition.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["rocksdb"]
-rocksdb = ["oxrocksdb-sys"]
+default = ["libsql"]
+libsql = ["dep:rusqlite"]
 js = ["getrandom/wasm_js", "oxsdatatypes/js", "js-sys"]
 http-client = ["oxhttp"]
 http-client-native-tls = ["http-client", "oxhttp/native-tls"]
 http-client-rustls-webpki = ["http-client", "oxhttp/rustls-ring-webpki"]
 http-client-rustls-native = ["http-client", "oxhttp/rustls-ring-native"]
-rocksdb-pkg-config = ["oxrocksdb-sys/pkg-config"]
-rocksdb-debug = []
 rdf-12 = ["oxrdfio/rdf-12", "spareval/sparql-12"]
 
 [dependencies]
@@ -41,8 +39,8 @@ thiserror.workspace = true
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 libc.workspace = true
+rusqlite = { version = "0.33", features = ["bundled"], optional = true }
 oxhttp = { workspace = true, optional = true }
-oxrocksdb-sys = { workspace = true, optional = true }
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 getrandom.workspace = true
@@ -64,4 +62,4 @@ rustdoc-args = ["--cfg", "docsrs"]
 [[bench]]
 name = "store"
 harness = false
-required-features = ["rocksdb"]
+required-features = ["libsql"]

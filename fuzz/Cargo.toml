@@ -8,7 +8,7 @@ edition = "2024"
 cargo-fuzz = true
 
 [features]
-rocksdb = ["oxigraph/rocksdb"]
+libsql = ["oxigraph/libsql"]
 
 [dependencies]
 anyhow = "1"

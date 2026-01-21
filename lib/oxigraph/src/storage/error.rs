@@ -50,13 +50,6 @@ impl CorruptionError {
         Self(CorruptionErrorKind::Other(error.into()))
     }
 
-    #[inline]
-    #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
-    pub(crate) fn from_missing_column_family_name(name: &'static str) -> Self {
-        // TODO: eventually use a dedicated error enum value
-        Self::msg(format!("Column family {name} does not exist"))
-    }
-
     /// Builds an error from a printable error message.
     #[inline]
     pub(crate) fn msg(msg: impl Into<String>) -> Self {

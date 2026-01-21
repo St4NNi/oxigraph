@@ -164,12 +164,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
       - uses: taiki-e/install-action@v2
         with: { tool: cargo-semver-checks }
-      - uses: actions/cache@v5
-        with:
-          path: rocksdb
-          key: ${{ runner.os }}-rocksdb-9.10.0
-      - run: bash .github/workflows/install_rocksdb.sh
-      - run: cargo semver-checks check-release --exclude oxrocksdb-sys --exclude oxigraph-js --exclude pyoxigraph --exclude oxigraph-testsuite --exclude oxigraph-cli
+      - run: cargo semver-checks check-release --exclude oxigraph-js --exclude pyoxigraph --exclude oxigraph-testsuite --exclude oxigraph-cli
 
   test_os:
     strategy:
@@ -259,20 +254,6 @@ jobs:
         env:
           RUSTFLAGS: -Z sanitizer=address
 
-  test_linux_dynamic_linking:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: ./.github/actions/setup-rust
-      - uses: actions/cache@v5
-        with:
-          path: rocksdb
-          key: ${{ runner.os }}-rocksdb-9.10.0
-      - run: bash .github/workflows/install_rocksdb.sh
-      - run: cargo test --tests --features oxrocksdb-sys/pkg-config
-
   test_wasip1:
     runs-on: ubuntu-latest
     steps:
@@ -284,7 +265,7 @@ jobs:
           target: wasm32-wasip1
       - uses: taiki-e/install-action@v2
         with: { tool: "wasmtime" }
-      - run: cargo test --target wasm32-wasip1 --workspace --exclude oxigraph-js --exclude oxigraph-cli --exclude oxigraph-testsuite --exclude oxrocksdb-sys --exclude pyoxigraph
+      - run: cargo test --target wasm32-wasip1 --workspace --exclude oxigraph-js --exclude oxigraph-cli --exclude oxigraph-testsuite --exclude pyoxigraph
         env:
           CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime --dir /tmp/
           WASMTIME_BACKTRACE_DETAILS: 1
@@ -401,13 +382,6 @@ jobs:
         with: { tool: typos-cli }
       - run: typos
 
-  clang_fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - run: sudo apt-get update && sudo apt-get install -y clang-format
-      - run: clang-format --Werror --dry-run oxrocksdb-sys/api/*
-
   fuzz_changes:
     strategy:
       matrix:
@@ -416,7 +390,7 @@ jobs:
             build_args: "--features sparql-smith/service"
             run_args: "-fork=1 -ignore_timeouts=1"
           - target: "sparql_update_eval"
-            build_args: "--features rocksdb"
+            build_args: "--features libsql"
             run_args: "-fork=1 -ignore_timeouts=1"
           - target: "sparql_results_json"
           - target: "sparql_results_tsv"

@@ -36,7 +36,7 @@ Note that Oxigraph CLI was previously named Oxigraph Server before version 0.4. 
 
 ## Installation
 
-You need to have [a recent stable version of Rust and Cargo installed](https://www.rust-lang.org/tools/install) as well as Clang for the RocksDB Rust bindings.
+You need to have [a recent stable version of Rust and Cargo installed](https://www.rust-lang.org/tools/install).
 
 To download, build, and install the latest released version run `cargo install oxigraph-cli`.
 There is no need to clone the git repository.
@@ -45,7 +45,6 @@ To compile the command-line tool from source, clone this git repository includin
 It will create a fat binary in `target/release/oxigraph`.
 
 Some build options (cargo features) are available:
-- `rocksdb-pkg-config`: links against an already compiled rocksdb shared library found using [pkg-config](https://crates.io/crates/pkg-config).
 - `native-tls`: Enables Oxigraph HTTP client for query federation using the host OS TLS stack (enabled by default).
 - `rustls-native` Enables Oxigraph HTTP client for query federation using [Rustls](https://crates.io/crates/rustls) and the native certificates.
 - `rustls-webpki` Enables Oxigraph HTTP client for query federation using [Rustls](https://crates.io/crates/rustls) and the [Common CA Database](https://www.ccadb.org/) certificates.
